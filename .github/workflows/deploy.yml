@@ -74,4 +74,4 @@ jobs:
           set -eu
           DEST="/home/$PROD_USER/treasury-risk-api"
           ssh -p "$PROD_PORT" -i ~/.ssh/id_ed25519 "$PROD_USER@$PROD_HOST" \
-            "cd $DEST && docker compose up -d --build"
+            "cd $DEST && sudo docker compose up -d --build --force-recreate"
