@@ -1,6 +1,6 @@
 services:
   treasury-risk-api:
-    build: .
+    image: localhost/treasury-risk-api:latest
     container_name: treasury-risk-api
     restart: unless-stopped
     ports:

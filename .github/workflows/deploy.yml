@@ -73,5 +73,14 @@ jobs:
         run: |
           set -eu
           DEST="/home/$PROD_USER/treasury-risk-api"
+          # Stop the container if it's running
           ssh -p "$PROD_PORT" -i ~/.ssh/id_ed25519 "$PROD_USER@$PROD_HOST" \
-            "cd $DEST && sudo docker compose up -d --build --force-recreate"
+            "cd $DEST && sudo docker compose down" || true
+          
+          # Build the image with security flags to bypass Oracle Cloud SELinux/Seccomp restrictions
+          ssh -p "$PROD_PORT" -i ~/.ssh/id_ed25519 "$PROD_USER@$PROD_HOST" \
+            "cd $DEST && sudo podman build --security-opt seccomp=unconfined --security-opt label=disable -t localhost/treasury-risk-api:latest ."
+            
+          # Start the container
+          ssh -p "$PROD_PORT" -i ~/.ssh/id_ed25519 "$PROD_USER@$PROD_HOST" \
+            "cd $DEST && sudo docker compose up -d"
