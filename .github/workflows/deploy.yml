@@ -73,9 +73,18 @@ jobs:
         run: |
           set -eu
           DEST="/home/$PROD_USER/treasury-risk-api"
+          
+          # Restart Podman socket to prevent read-only database locks (just like main app)
+          ssh -p "$PROD_PORT" -i ~/.ssh/id_ed25519 "$PROD_USER@$PROD_HOST" \
+            "sudo systemctl restart podman.socket podman-docker.socket 2>/dev/null || true; sleep 3"
+
           # Stop the container if it's running
           ssh -p "$PROD_PORT" -i ~/.ssh/id_ed25519 "$PROD_USER@$PROD_HOST" \
             "cd $DEST && sudo docker compose down" || true
+          
+          # Pre-build cleanup: remove dangling images from previous failed builds
+          ssh -p "$PROD_PORT" -i ~/.ssh/id_ed25519 "$PROD_USER@$PROD_HOST" \
+            "sudo podman image prune -f >/dev/null 2>&1 || true"
           
           # Build the image with security flags to bypass Oracle Cloud SELinux/Seccomp restrictions
           ssh -p "$PROD_PORT" -i ~/.ssh/id_ed25519 "$PROD_USER@$PROD_HOST" \
@@ -83,4 +92,8 @@ jobs:
             
           # Start the container
           ssh -p "$PROD_PORT" -i ~/.ssh/id_ed25519 "$PROD_USER@$PROD_HOST" \
-            "cd $DEST && sudo docker compose up -d"
+            "cd $DEST && sudo docker compose up -d --remove-orphans"
+            
+          # Post-deploy cleanup: remove unused containers, networks, and images to free up disk space
+          ssh -p "$PROD_PORT" -i ~/.ssh/id_ed25519 "$PROD_USER@$PROD_HOST" \
+            "sudo podman system prune -f >/dev/null 2>&1 || true"
