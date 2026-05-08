@@ -82,12 +82,25 @@ jobs:
           PROD_HOST: ${{ secrets.PROD_HOST }}
           PROD_PORT: ${{ secrets.PROD_PORT || '22' }}
           PROD_USER: ${{ secrets.PROD_USER }}
-          NGINX_CONTAINER: ${{ secrets.NGINX_CONTAINER || 'atreasury-nginx' }}
+          NGINX_CONTAINER: ${{ secrets.NGINX_CONTAINER || '' }}
           INTERNAL_API_HEALTH_URL: ${{ secrets.INTERNAL_API_HEALTH_URL || 'http://treasury-risk-api:4000/health' }}
         run: |
           set -eu
+          TARGET_CONTAINER="$NGINX_CONTAINER"
+
+          if [ -z "$TARGET_CONTAINER" ]; then
+            TARGET_CONTAINER="$(ssh -p "$PROD_PORT" -i ~/.ssh/id_ed25519 "$PROD_USER@$PROD_HOST" \
+              "sudo podman ps --format '{{.Names}}' | grep -E 'nginx' | head -n 1")"
+          fi
+
+          if [ -z "$TARGET_CONTAINER" ]; then
+            echo "Could not auto-detect nginx container name. Set NGINX_CONTAINER secret." >&2
+            exit 1
+          fi
+
+          echo "Using nginx container: $TARGET_CONTAINER"
           ssh -p "$PROD_PORT" -i ~/.ssh/id_ed25519 "$PROD_USER@$PROD_HOST" \
-            "sudo podman exec '$NGINX_CONTAINER' curl -fsS '$INTERNAL_API_HEALTH_URL' >/dev/null"
+            "sudo podman exec '$TARGET_CONTAINER' curl -fsS '$INTERNAL_API_HEALTH_URL' >/dev/null"
 
       - name: Verify public API health endpoint
         env:
