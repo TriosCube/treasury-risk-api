@@ -219,6 +219,14 @@ app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 // API Routes
 const apiRouter = express.Router();
 
+app.get("/", (req, res) => {
+  res.redirect("/docs");
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", service: "treasury-risk-api" });
+});
+
 apiRouter.post("/nop/exposure", (req, res) => {
   const { trades, riskLimits, openingPositions } = req.body as {
     trades: NOPTrade[];

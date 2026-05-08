@@ -10,8 +10,11 @@ RUN npm install
 # Copy the rest of the application code
 COPY . .
 
+# Build the TypeScript code
+RUN npm run build
+
 # Expose the API port
 EXPOSE 4000
 
 # Start the application
-CMD ["npx", "ts-node", "src/index.ts"]
+CMD ["npm", "start"]
