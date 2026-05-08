@@ -46,24 +46,25 @@ jobs:
           set -eu
           ssh-keyscan -p "$PROD_PORT" -H "$PROD_HOST" >> ~/.ssh/known_hosts
 
-      - name: Sync code to server
+      - name: Ensure server repo and sync latest code
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
           PROD_PORT: ${{ secrets.PROD_PORT || '22' }}
           PROD_USER: ${{ secrets.PROD_USER }}
+          TARGET_BRANCH: ${{ github.ref_name }}
+          REPO_URL: https://github.com/TriosCube/treasury-risk-api.git
         run: |
           set -eu
           DEST="/home/$PROD_USER/treasury-risk-api"
-          ssh -p "$PROD_PORT" -i ~/.ssh/id_ed25519 "$PROD_USER@$PROD_HOST" \
-            "mkdir -p $DEST"
-          
-          # Sync all API code (excluding node_modules and git folders)
-          rsync -az --delete \
-            --exclude 'node_modules' \
-            --exclude '.git' \
-            --exclude '.github' \
-            -e "ssh -p $PROD_PORT -i ~/.ssh/id_ed25519" \
-            ./ "$PROD_USER@$PROD_HOST:$DEST/"
+          ssh -p "$PROD_PORT" -i ~/.ssh/id_ed25519 "$PROD_USER@$PROD_HOST" "set -eu
+            if [ ! -d '$DEST/.git' ]; then
+              rm -rf '$DEST'
+              git clone --branch '$TARGET_BRANCH' '$REPO_URL' '$DEST'
+            fi
+            cd '$DEST'
+            git fetch origin
+            git reset --hard 'origin/$TARGET_BRANCH'
+          "
 
       - name: Run server deploy script
         env:
