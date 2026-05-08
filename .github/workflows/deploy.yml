@@ -133,3 +133,51 @@ jobs:
 
           echo "Public health check failed (both strict TLS and insecure): $API_HEALTH_URL" >&2
           exit 1
+
+      - name: Dump server diagnostics on failure
+        if: ${{ failure() }}
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_PORT: ${{ secrets.PROD_PORT || '22' }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          INTERNAL_API_HEALTH_URL: ${{ secrets.INTERNAL_API_HEALTH_URL || 'http://treasury-risk-api:4000/health' }}
+          API_HEALTH_URL: ${{ secrets.API_HEALTH_URL || 'https://api.altisly.com/health' }}
+        run: |
+          set +e
+          ssh -p "$PROD_PORT" -i ~/.ssh/id_ed25519 "$PROD_USER@$PROD_HOST" "set +e
+            echo '=== podman ps ==='
+            sudo podman ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+
+            echo
+            echo '=== treasury-risk-api logs (last 200) ==='
+            sudo podman logs --tail 200 treasury-risk-api || true
+
+            echo
+            echo '=== nginx container auto-detect ==='
+            NGINX_NAME=\$(sudo podman ps --format '{{.Names}}' | grep -E 'nginx' | head -n 1)
+            echo \"NGINX_NAME=\$NGINX_NAME\"
+
+            if [ -n \"\$NGINX_NAME\" ]; then
+              echo
+              echo '=== nginx->api curl from inside nginx container ==='
+              sudo podman exec \"\$NGINX_NAME\" curl -i --max-time 10 '$INTERNAL_API_HEALTH_URL' || true
+
+              echo
+              echo '=== nginx logs (last 200) ==='
+              sudo podman logs --tail 200 \"\$NGINX_NAME\" || true
+            fi
+
+            echo
+            echo '=== host curl checks ==='
+            curl -i --max-time 10 http://127.0.0.1:4000/health || true
+            curl -k -i --max-time 10 '$API_HEALTH_URL' || true
+
+            echo
+            echo '=== api nginx conf (if present) ==='
+            sudo cat /home/$PROD_USER/atreasury-main-app/nginx/conf.d/api.altisly.com.conf || true
+
+            echo
+            echo '=== network inspect (filtered) ==='
+            sudo podman network ls || true
+            sudo podman network inspect atreasury-main-app_atreasury-uat-net || true
+          "
