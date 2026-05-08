@@ -16,5 +16,5 @@ services:
 
 networks:
   treasury-network:
-    name: atreasury-main-app_treasury-network
+    name: atreasury-main-app_atreasury-uat-net
     external: true
