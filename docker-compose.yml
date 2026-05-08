@@ -11,3 +11,10 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=4000
+    networks:
+      - treasury-network
+
+networks:
+  treasury-network:
+    name: atreasury-main-app_treasury-network
+    external: true
